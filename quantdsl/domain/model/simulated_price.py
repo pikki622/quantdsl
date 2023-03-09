@@ -36,9 +36,7 @@ def make_simulated_price_id(simulation_id, market_name, fixing_date, delivery_da
     assert isinstance(delivery_date, (datetime.datetime, datetime.date)), (delivery_date, type(delivery_date))
     fixing_date = datetime_from_date(fixing_date)
     delivery_date = datetime_from_date(delivery_date)
-    price_id = ("PriceId(simulation_id='{}' commodity_name='{}' fixing_date='{}', delivery_date='{}')"
-                "".format(simulation_id, market_name, fixing_date, delivery_date))
-    return price_id
+    return f"PriceId(simulation_id='{simulation_id}' commodity_name='{market_name}' fixing_date='{fixing_date}', delivery_date='{delivery_date}')"
 
 
 class SimulatedPriceRepository(EntityRepository):

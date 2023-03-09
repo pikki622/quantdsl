@@ -276,7 +276,7 @@ def evaluate_dsl_expr(dsl_expr, simulation_id, interest_rate, present_time, simu
     # Decide perturbation names.
     perturbation_names = perturbation_dependencies
     if is_double_sided_deltas:
-        perturbation_names += ['-' + p for p in perturbation_dependencies]
+        perturbation_names += [f'-{p}' for p in perturbation_dependencies]
 
 
     for perturbation_name in [''] + perturbation_names:

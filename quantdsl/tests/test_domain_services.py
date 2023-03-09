@@ -255,6 +255,10 @@ class TestPriceProcesses(unittest.TestCase):
 
         # Test the error paths.
         # - can't import the Python module
-        self.assertRaises(DslError, get_price_process, 'x' + DEFAULT_PRICE_PROCESS_NAME)
+        self.assertRaises(
+            DslError, get_price_process, f'x{DEFAULT_PRICE_PROCESS_NAME}'
+        )
         # - can't find the price process class
-        self.assertRaises(DslError, get_price_process, DEFAULT_PRICE_PROCESS_NAME + 'x')
+        self.assertRaises(
+            DslError, get_price_process, f'{DEFAULT_PRICE_PROCESS_NAME}x'
+        )

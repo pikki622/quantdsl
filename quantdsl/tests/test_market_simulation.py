@@ -39,8 +39,10 @@ class TestMarketSimulation(ApplicationTestCase):
         observation_date = fixing_dates[0]
         simulation_requirements = []
         for commodity_name in commodity_names:
-            for fixing_date in fixing_dates:
-                simulation_requirements.append((commodity_name, fixing_date, fixing_date))
+            simulation_requirements.extend(
+                (commodity_name, fixing_date, fixing_date)
+                for fixing_date in fixing_dates
+            )
         path_count = self.PATH_COUNT
 
         market_simulation = self.app.register_market_simulation(

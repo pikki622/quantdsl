@@ -47,7 +47,7 @@ class DslObject(six.with_metaclass(ABCMeta)):
         """Returns Quant DSL source code for the DSL object."""
         args_lines = []
         one_liner = True
-        for i, arg in enumerate(self._args):
+        for arg in self._args:
             assert isinstance(arg, DslObject), type(arg)
             arg_lines = arg.pprint()
             args_lines.append(arg_lines)
@@ -55,7 +55,7 @@ class DslObject(six.with_metaclass(ABCMeta)):
                 one_liner = False
 
         if one_liner:
-            line = self.__class__.__name__ + '('
+            line = f'{self.__class__.__name__}('
             if args_lines:
                 for arg_lines in args_lines:
                     line += arg_lines[0]
@@ -64,9 +64,9 @@ class DslObject(six.with_metaclass(ABCMeta)):
             line += ')'
             lines = [line]
         else:
-            lines = [self.__class__.__name__ + '(']
+            lines = [f'{self.__class__.__name__}(']
             for arg_lines in args_lines:
-                lines += ['   ' + l for l in arg_lines]
+                lines += [f'   {l}' for l in arg_lines]
                 lines[-1] += ','
             lines[-1] = lines[-1][:-1]  # Drop the last comma.
 
@@ -95,12 +95,11 @@ class DslObject(six.with_metaclass(ABCMeta)):
 
     def hash_single_arg(self, _arg):
         if isinstance(_arg, DslObject):
-            _hash = str(_arg.hash)
+            return str(_arg.hash)
         elif isinstance(_arg, relativedelta):
-            _hash = str(hash(str(_arg)))
+            return str(hash(str(_arg)))
         else:
-            _hash = str(hash(_arg))
-        return _hash
+            return str(hash(_arg))
 
     # def __hash__(self):
     #     return self.hash
@@ -114,20 +113,20 @@ class DslObject(six.with_metaclass(ABCMeta)):
     # Todo: Rework validation, perhaps by considering a declarative form in which to express the requirements.
     def assert_args_len(self, args, required_len=None, min_len=None, max_len=None):
         if min_len != None and len(args) < min_len:
-            error = "%s is broken" % self.__class__.__name__
-            descr = "requires at least %s arguments (%s were given)" % (min_len, len(args))
+            error = f"{self.__class__.__name__} is broken"
+            descr = f"requires at least {min_len} arguments ({len(args)} were given)"
             raise DslSyntaxError(error, descr, self.node)
         if max_len != None and len(args) > max_len:
-            error = "%s is broken" % self.__class__.__name__
-            descr = "requires at most %s arguments (%s were given)" % (max_len, len(args))
+            error = f"{self.__class__.__name__} is broken"
+            descr = f"requires at most {max_len} arguments ({len(args)} were given)"
             raise DslSyntaxError(error, descr, self.node)
         if required_len != None and len(args) != required_len:
-            error = "%s is broken" % self.__class__.__name__
-            descr = "requires %s arguments (%s were given)" % (required_len, len(args))
+            error = f"{self.__class__.__name__} is broken"
+            descr = f"requires {required_len} arguments ({len(args)} were given)"
             raise DslSyntaxError(error, descr, self.node)
 
     def assert_args_arg(self, args, posn, required_type):
-        error_msg = "%s is broken" % self.__class__.__name__
+        error_msg = f"{self.__class__.__name__} is broken"
         if isinstance(required_type, list):
             # Ahem, this is a way of saying we require a list of the type (should be a list length 1).
             self.assert_args_arg(args, posn, list)
@@ -138,8 +137,8 @@ class DslObject(six.with_metaclass(ABCMeta)):
                 try:
                     self.assert_args_arg(list_of_args, i, required_type)
                 except DslSyntaxError as e:
-                    desc = "argument %s must be %s" % (posn, required_type)
-                    desc += " (but a %s was found): " % (list_of_args)
+                    desc = f"argument {posn} must be {required_type}"
+                    desc += f" (but a {list_of_args} was found): "
                     desc += str(args[posn])
                     raise DslSyntaxError(error_msg, desc, self.node)
 
@@ -149,8 +148,8 @@ class DslObject(six.with_metaclass(ABCMeta)):
                 required_type_names = ", ".join(required_type_names)
             else:
                 required_type_names = required_type.__name__
-            desc = "argument %s must be %s" % (posn, required_type_names)
-            desc += " (but a %s was found): " % (args[posn].__class__.__name__)
+            desc = f"argument {posn} must be {required_type_names}"
+            desc += f" (but a {args[posn].__class__.__name__} was found): "
             desc += str(args[posn])
             raise DslSyntaxError(error_msg, desc, self.node)
 
@@ -160,16 +159,14 @@ class DslObject(six.with_metaclass(ABCMeta)):
     def has_instances(self, *dsl_types):
         for _ in self.find_instances(*dsl_types):
             return True
-        else:
-            return False
+        return False
 
     def find_instances(self, *dsl_types):
         if isinstance(self, dsl_types):
             yield self
         for arg in self._args:
             if isinstance(arg, DslObject):
-                for dsl_obj in arg.find_instances(dsl_types):
-                    yield dsl_obj
+                yield from arg.find_instances(dsl_types)
 
     def substitute_names(self, namespace):
         return self.process('substitute_names', namespace)
@@ -181,10 +178,10 @@ class DslObject(six.with_metaclass(ABCMeta)):
                             pending_call_stack=pending_call_stack)
 
     def cost_expression(self):
-        cost = 0
-        for instance in self.find_instances(DslExpression):
-            cost += instance.cost_element()
-        return cost
+        return sum(
+            instance.cost_element()
+            for instance in self.find_instances(DslExpression)
+        )
 
     def process(self, method, *args, **kwargs):
         new_dsl_args = []
@@ -259,7 +256,9 @@ class DslConstant(DslExpression):
 
     def validate(self, args):
         self.assert_args_len(args, required_len=1)
-        assert self.required_type is not None, "required_type attribute not set on %s" % self.__class__
+        assert (
+            self.required_type is not None
+        ), f"required_type attribute not set on {self.__class__}"
         self.assert_args_arg(args, posn=0, required_type=self.required_type)
         self.parse(args[0])
 
@@ -302,10 +301,7 @@ class Date(DslConstant):
     def parse(self, value):
         # Return a datetime.datetime.
         if isinstance(value, (six.string_types, String)):
-            if isinstance(value, String):
-                date_str = value.evaluate()
-            else:
-                date_str = value
+            date_str = value.evaluate() if isinstance(value, String) else value
             try:
                 year, month, day = [int(i) for i in date_str.split('-')]
                 return datetime.datetime(year, month, day)
@@ -322,17 +318,19 @@ class TimeDelta(DslConstant):
     required_type = (String, datetime.timedelta, relativedelta)
 
     def pprint(self, indent=''):
-        return ["{}({})".format(self.__class__.__name__, self._args[0])]
+        return [f"{self.__class__.__name__}({self._args[0]})"]
 
     def parse(self, value, regex=re.compile(r'((?P<days>\d+?)d|(?P<months>\d+?)m|(?P<years>\d+?)y)?')):
         if isinstance(value, String):
             duration_str = value.evaluate()
             parts = regex.match(duration_str)
             parts = parts.groupdict()
-            kwargs = dict((name, int(param)) for (name, param) in six.iteritems(parts) if param)
-            if not kwargs:
+            if kwargs := {
+                name: int(param) for (name, param) in six.iteritems(parts) if param
+            }:
+                value = relativedelta(**kwargs)
+            else:
                 raise DslSyntaxError('invalid "time delta" string', duration_str, node=self.node)
-            value = relativedelta(**kwargs)
         return value
 
 
@@ -397,16 +395,16 @@ class BoolOp(DslExpression):
     def pprint(self, indent=''):
         operator = self.__class__.__name__.lower()
         lines = []
-        padded_operator = ' ' + operator + ' '
+        padded_operator = f' {operator} '
         for arg in self._args[0]:
             arg_lines = arg.pprint()
             if lines:
                 lines[-1] += padded_operator + arg_lines[0]
-                lines += ['    ' + l for l in arg_lines[1:]]
+                lines += [f'    {l}' for l in arg_lines[1:]]
             else:
-                lines += [l for l in arg_lines]
+                lines += list(arg_lines)
 
-        lines[0] = '(' + lines[0]
+        lines[0] = f'({lines[0]}'
         lines[-1] += ')'
         return lines
 
@@ -434,7 +432,7 @@ class BinOp(DslExpression):
         def make_lines(dsl_expr):
             lines = dsl_expr.pprint()
             if self.op_code and isinstance(dsl_expr, BinOp) and dsl_expr.op_code:
-                lines[0] = '(' + lines[0]
+                lines[0] = f'({lines[0]}'
                 lines[-1] += ')'
             return lines
 
@@ -443,15 +441,15 @@ class BinOp(DslExpression):
 
         if self.op_code:
             lines = left_lines[:-1]
-            lines.append(left_lines[-1] + " " + self.op_code + " " + right_lines[0])
+            lines.append(f"{left_lines[-1]} {self.op_code} {right_lines[0]}")
             lines += right_lines[1:]
         elif len(left_lines) == 1 and len(right_lines) == 1:
-            lines = ['%s(' % self.__class__.__name__ + left_lines[0] + ', ' + right_lines[0] + ')']
+            lines = [f'{self.__class__.__name__}({left_lines[0]}, {right_lines[0]})']
         else:
-            lines = ['%s(' % self.__class__.__name__]
-            lines += ['    ' + l for l in left_lines[:-1]]
-            lines.append('    ' + left_lines[-1] + ',')
-            lines += ['    ' + l for l in right_lines]
+            lines = [f'{self.__class__.__name__}(']
+            lines += [f'    {l}' for l in left_lines[:-1]]
+            lines.append(f'    {left_lines[-1]},')
+            lines += [f'    {l}' for l in right_lines]
             lines += [')']
         return lines
 
@@ -478,9 +476,11 @@ class BinOp(DslExpression):
             #     return self.op_python(left, right)
             return self.op_python(left, right)
         except TypeError as e:
-            raise DslBinOpArgsError("unable to %s" % self.__class__.__name__.lower(),
-                                    "%s and %s: %s" % (self.left, self.right, e),
-                                    node=self.node)
+            raise DslBinOpArgsError(
+                f"unable to {self.__class__.__name__.lower()}",
+                f"{self.left} and {self.right}: {e}",
+                node=self.node,
+            )
 
     @abstractmethod
     def op_python(self, left, right):
@@ -573,12 +573,12 @@ class NonInfixedBinOp(BinOp):
             return self.scalar_op(a, b)
         elif (not aIsaNumber) and (not bIsaNumber):
             # Both are vectors.
-            msg = "Vectors have different length: %s and %s" % (len(a), len(b))
+            msg = f"Vectors have different length: {len(a)} and {len(b)}"
             assert len(a) == len(b), msg
-        elif aIsaNumber and (not bIsaNumber):
+        elif aIsaNumber:
             # Todo: Optimise with scipy.zeros() when a equals zero?
             a = scipy.array([a] * len(b))
-        elif bIsaNumber and (not aIsaNumber):
+        else:
             # Todo: Optimise with scipy.zeros() when b equals zero?
             b = scipy.array([b] * len(a))
         return self.vector_op(a, b)
@@ -646,7 +646,7 @@ class Name(DslExpression):
         try:
             return kwds[self.name]
         except KeyError:
-            msg = "'{}' is not defined. Current frame defines".format(self.name)
+            msg = f"'{self.name}' is not defined. Current frame defines"
             raise DslNameError(msg, str(kwds.keys()), node=self.node)
 
 
@@ -660,7 +660,7 @@ class Stub(Name):
         # Can't just return a Python string, like with Names, because this
         # is normally a UUID, and UUIDs are not valid Python variable names
         # because they have dashes and sometimes start with numbers.
-        return ["Stub('%s')" % self.name]
+        return [f"Stub('{self.name}')"]
 
 
 class FunctionDef(DslObject):
@@ -671,12 +671,10 @@ class FunctionDef(DslObject):
     """
 
     def pprint(self, indent=''):
-        lines = []
-        for decorator_name in self.decorator_names:
-            lines.append("@" + decorator_name)
-        lines.append("def %s(%s):" % (self.name, ", ".join(self.call_arg_names)))
+        lines = [f"@{decorator_name}" for decorator_name in self.decorator_names]
+        lines.append(f'def {self.name}({", ".join(self.call_arg_names)}):')
         assert isinstance(self.body, DslObject)
-        lines += ['    ' + l for l in self.body.pprint()]
+        lines += [f'    {l}' for l in self.body.pprint()]
         return lines
 
     def __init__(self, *args, **kwds):
@@ -718,8 +716,10 @@ class FunctionDef(DslObject):
     def validateCallArgs(self, dsl_locals):
         for call_arg_name in self.call_arg_names:
             if call_arg_name not in dsl_locals:
-                raise DslSyntaxError('expected call arg not found',
-                                     "arg '%s' not in call arg namespace %s" % (call_arg_name, dsl_locals.keys()))
+                raise DslSyntaxError(
+                    'expected call arg not found',
+                    f"arg '{call_arg_name}' not in call arg namespace {dsl_locals.keys()}",
+                )
 
     def apply(self, present_time=None, observation_date=None, pending_call_stack=None,
               is_destacking=False, **raw_dsl_locals):
@@ -741,15 +741,15 @@ class FunctionDef(DslObject):
                     try:
                         arg_value = arg_value.call_functions()
                     except DslError as e:
-                        raise Exception("Can't evaluate {}: {}: {}"
-                                        .format(arg_name, arg_value, e))
+                        raise Exception(f"Can't evaluate {arg_name}: {arg_value}: {e}")
             elif isinstance(arg_value, DslExpression):
                 if not arg_value.has_instances(StochasticObject):
                     try:
                         arg_value = arg_value.evaluate()
                     except DslError as e:
-                        raise Exception("Can't evaluate {}, a non-stochastic expression: {}: {}"
-                                        .format(arg_name, arg_value, e))
+                        raise Exception(
+                            f"Can't evaluate {arg_name}, a non-stochastic expression: {arg_value}: {e}"
+                        )
 
             dsl_locals[arg_name] = arg_value
             call_cache_key_dict[arg_name] = arg_value
@@ -835,14 +835,16 @@ class FunctionDef(DslObject):
         # if isinstance(obj, list):
         #     return hash(tuple(sorted([self.create_hash(a) for a in obj])))
 
-        raise DslSystemError("Can't create hash from obj type '%s'" % type(obj), obj,
-                             node=obj.node if isinstance(obj, DslObject) else None)
+        raise DslSystemError(
+            f"Can't create hash from obj type '{type(obj)}'",
+            obj,
+            node=obj.node if isinstance(obj, DslObject) else None,
+        )
 
 
 class FunctionCall(DslExpression):
     def pprint(self, indent=''):
-        lines = []
-        lines.append("%s(" % self.functionDef)
+        lines = [f"{self.functionDef}("]
         for arg in self.callArgExprs:
             lines += arg.pprint()
         lines.append(')')
@@ -879,13 +881,8 @@ class FunctionCall(DslExpression):
         if len(f.callArgs) != len(self.callArgExprs):
             raise DslSyntaxError(
                 "mismatched call args",
-                "expected %s but got %s. Expected args: %s. Received exprs: %s" % (
-                    len(f.callArgs),
-                    len(self.callArgExprs),
-                    f.call_arg_names,
-                    self.callArgExprs,
-                ),
-                node=self.node
+                f"expected {len(f.callArgs)} but got {len(self.callArgExprs)}. Expected args: {f.call_arg_names}. Received exprs: {self.callArgExprs}",
+                node=self.node,
             )
 
         # Prepare the call args.
@@ -930,16 +927,12 @@ class FunctionCall(DslExpression):
             # Add the call arg value to the new call arg namespace.
             call_args[call_arg_def.name] = call_arg_value
 
-        # Evaluate the function def with the dict of call arg values.
-        # The result of this function call (stubbed or otherwise) should be a DSL expression.
-        dsl_expr = f.apply(present_time=present_time,
-                           observation_date=observation_date,
-                           pending_call_stack=pending_call_stack,
-                           **call_args)
-
-        # assert isinstance(dsl_expr, DslExpression)
-
-        return dsl_expr
+        return f.apply(
+            present_time=present_time,
+            observation_date=observation_date,
+            pending_call_stack=pending_call_stack,
+            **call_args
+        )
 
 
 class FunctionArg(DslObject):
@@ -983,42 +976,33 @@ class BaseIf(DslExpression):
 
         # Check for stochastic elements.
         stochastic_elements = test_expr.find_instances(StochasticObject)
-        stochastic_elements = list(stochastic_elements)
-        if stochastic_elements:
-            msg = "if statement test expression can't evaluate stochastic elements: {}".format(
-                ", ".join([str(i) for i in stochastic_elements]))
+        if stochastic_elements := list(stochastic_elements):
+            msg = f"""if statement test expression can't evaluate stochastic elements: {", ".join([str(i) for i in stochastic_elements])}"""
             raise DslTestExpressionCannotBeEvaluated(msg, '', self.node)
         # Check for stub elements.
         stub_elements = test_expr.find_instances(Stub)
-        stub_elements = list(stub_elements)
-        if stub_elements:
-            msg = "if statement test expression can't evaluate stubbed expressions: {}".format(
-                ", ".join([str(i) for i in stub_elements]))
+        if stub_elements := list(stub_elements):
+            msg = f"""if statement test expression can't evaluate stubbed expressions: {", ".join([str(i) for i in stub_elements])}"""
             raise DslTestExpressionCannotBeEvaluated(msg, '', self.node)
         try:
             test_value = test_expr.evaluate(**kwds)
         except DslSyntaxError as e:
-            msg = "Cannot evaluate if statement's test expression: {}: {}".format(self.test, e)
+            msg = f"Cannot evaluate if statement's test expression: {self.test}: {e}"
             raise DslSyntaxError(msg, '', self.node)
         if isinstance(test_value, DslObject):
             raise DslIfTestExpressionError("If statement test expression evaluated to a DSL object",
                                            str(test_value), node=self.node)
-        if test_value:
-            expression = self.body
-        else:
-            expression = self.orelse
-        return expression
+        return self.body if test_value else self.orelse
 
 
 class If(BaseIf):
     def pprint(self, indent=''):
-        lines = []
         test_lines = self.test.pprint()
-        lines.append("if %s:" % test_lines[0])
+        lines = [f"if {test_lines[0]}:"]
         lines += test_lines[1:]
 
         body_lines = self.body.pprint()
-        lines += ['    ' + l for l in body_lines]
+        lines += [f'    {l}' for l in body_lines]
         lines += self.orelse_to_str(self.orelse, indent)
         return lines
 
@@ -1027,10 +1011,10 @@ class If(BaseIf):
         if isinstance(orelse, If):
             test_lines = orelse.test.pprint()
             body_lines = orelse.body.pprint()
-            lines += ["elif " + test_lines[0]]
-            lines += ['        ' + l for l in test_lines[1:]]
+            lines += [f"elif {test_lines[0]}"]
+            lines += [f'        {l}' for l in test_lines[1:]]
             lines[-1] += ':'
-            lines += ['    ' + l for l in body_lines]
+            lines += [f'    {l}' for l in body_lines]
 
             # Recurse down "linked list" of alternatives...
             lines += self.orelse_to_str(orelse.orelse, indent)
@@ -1038,7 +1022,7 @@ class If(BaseIf):
             # ...until we reach the final alternative.
             lines += ["else:"]
             orelse_lines = orelse.pprint()
-            lines += ['    ' + l for l in orelse_lines]
+            lines += [f'    {l}' for l in orelse_lines]
         return lines
 
 
@@ -1048,7 +1032,7 @@ class IfExp(If):
     """
 
     def pprint(self, indent=''):
-        return ["%s if %s else %s" % (self.body, self.test, self.orelse)]
+        return [f"{self.body} if {self.test} else {self.orelse}"]
 
 
 class Compare(DslExpression):
@@ -1073,9 +1057,17 @@ class Compare(DslExpression):
     }
 
     def pprint(self, indent=''):
-        return [str(self.left) + ' ' + " ".join(
-            [str(self.opcodes[op]) + ' ' + str(right) for (op, right) in zip(self.op_names, self.comparators)]
-        )]
+        return [
+            (
+                f'{str(self.left)} '
+                + " ".join(
+                    [
+                        f'{str(self.opcodes[op])} {str(right)}'
+                        for (op, right) in zip(self.op_names, self.comparators)
+                    ]
+                )
+            )
+        ]
 
     def validate(self, args):
         self.assert_args_len(args, 3)
@@ -1085,7 +1077,7 @@ class Compare(DslExpression):
         self.assert_args_arg(args, 2, required_type=list)
         for opName in args[1]:
             if opName not in self.valid_ops.keys():
-                raise DslSyntaxError("Op name '%s' not supported" % opName)
+                raise DslSyntaxError(f"Op name '{opName}' not supported")
 
     @property
     def left(self):
@@ -1110,8 +1102,7 @@ class Compare(DslExpression):
             if not op(left_value, right_value):
                 return False
             left_value = right_value
-        else:
-            return True
+        return True
 
     comparable_types = {}
     for integer_type in six.integer_types:
@@ -1129,8 +1120,7 @@ class Compare(DslExpression):
         try:
             assert isinstance(right, self.comparable_types[type(left)])
         except (KeyError, AssertionError) as e:
-            msg = ("Test expression needs comparable values, "
-                   "not: {} and {}").format(type(left), type(right))
+            msg = f"Test expression needs comparable values, not: {type(left)} and {type(right)}"
             raise DslCompareArgsError(msg, '', node=self.node)
 
 
@@ -1173,16 +1163,14 @@ def inline(*args):
 
 class DslNamespace(dict):
     def copy(self):
-        copy = self.__class__(self)
-        return copy
+        return self.__class__(self)
 
     def combine(self, other):
         if other is None:
             return self
-        else:
-            copy = self.copy()
-            copy.update(other)
-            return copy
+        copy = self.copy()
+        copy.update(other)
+        return copy
 
 
 class StochasticObject(DslObject):
@@ -1202,10 +1190,9 @@ class DatedDslObject(DslExpression):
             date = self._args[0]
             if isinstance(date, Name):
                 raise DslSyntaxError(
-                    "date value name '%s' must be resolved to a datetime before it can be used" % date.name,
-                    node=self.node)
-            if isinstance(date, datetime.date):
-                pass
+                    f"date value name '{date.name}' must be resolved to a datetime before it can be used",
+                    node=self.node,
+                )
             if isinstance(date, six.string_types):
                 date = String(date)
             if isinstance(date, String):
@@ -1213,8 +1200,10 @@ class DatedDslObject(DslExpression):
             if isinstance(date, (Date, BinOp)):
                 date = date.evaluate(**kwargs)
             if not isinstance(date, datetime.date):
-                raise DslSyntaxError("date value should be a datetime.datetime by now, but it's a %s" % date,
-                                     node=self.node)
+                raise DslSyntaxError(
+                    f"date value should be a datetime.datetime by now, but it's a {date}",
+                    node=self.node,
+                )
             self._date = date
         return self._date
 
@@ -1275,7 +1264,7 @@ class AbstractMarket(StochasticObject, DslExpression):
         try:
             simulated_price_value = simulated_value_dict[simulated_price_id]
         except KeyError:
-            raise DslError("Simulated price not found ID: {}".format(simulated_price_id))
+            raise DslError(f"Simulated price not found ID: {simulated_price_id}")
 
         # # Discount the value from delivery date to fixing date.
         # if present_time != delivery_date:
@@ -1287,17 +1276,16 @@ class AbstractMarket(StochasticObject, DslExpression):
         #     )
 
         # Get the active perturbation, if set.
-        active_perturbation = kwds.get('active_perturbation', None)
+        active_perturbation = kwds.get('active_perturbation')
         perturbation_factor = kwds['perturbation_factor']
 
         expr_value = simulated_price_value
         if active_perturbation and self.get_perturbation(**kwds) == active_perturbation.lstrip('-'):
             # If this perturbation is active, perturb the simulated value.
             sign = -1 if active_perturbation.startswith('-') else 1
-            evaluated_value = expr_value * (1 + sign * perturbation_factor)
+            return expr_value * (1 + sign * perturbation_factor)
         else:
-            evaluated_value = expr_value
-        return evaluated_value
+            return expr_value
 
     @property
     def commodity_name(self):
@@ -1307,8 +1295,10 @@ class AbstractMarket(StochasticObject, DslExpression):
         # which probably should work differently, so that this restriction can be removed.
         # Todo: Review perturbation names (now hyphen separated, were JSON strings).
         if '-' in name:
-            raise DslSyntaxError("hyphen character '-' not allowed in market names (sorry): {}"
-                                 "".format(name), node=self.node)
+            raise DslSyntaxError(
+                f"hyphen character '-' not allowed in market names (sorry): {name}",
+                node=self.node,
+            )
         return name
 
     def identify_price_simulation_requirements(self, requirements, **kwds):
@@ -1341,12 +1331,11 @@ class AbstractMarket(StochasticObject, DslExpression):
             if periodisation.startswith('alltime'):
                 perturbation = commodity_name
             elif periodisation.startswith('year'):
-                perturbation = "{}-{}".format(commodity_name, delivery_date.year)
+                perturbation = f"{commodity_name}-{delivery_date.year}"
             elif periodisation.startswith('mon'):
-                perturbation = "{}-{}-{}".format(commodity_name, delivery_date.year, delivery_date.month)
+                perturbation = f"{commodity_name}-{delivery_date.year}-{delivery_date.month}"
             elif periodisation.startswith('da'):
-                perturbation = "{}-{}-{}-{}".format(commodity_name, delivery_date.year, delivery_date.month,
-                                                    delivery_date.day)
+                perturbation = f"{commodity_name}-{delivery_date.year}-{delivery_date.month}-{delivery_date.day}"
         return perturbation
 
     def get_fixing_and_delivery_dates(self, kwds):
@@ -1360,7 +1349,7 @@ class Market(AbstractMarket):
         self.assert_args_arg(args, posn=0, required_type=(six.string_types + (String, Name)))
 
     def pprint(self, indent=''):
-        msg = self.__class__.__name__ + '('
+        msg = f'{self.__class__.__name__}('
         msg += self._args[0].pprint()[0]
         msg += ')'
         return [msg]
@@ -1382,8 +1371,9 @@ class ForwardMarket(AbstractMarket):
             date = self._args[0]
             if isinstance(date, Name):
                 raise DslSyntaxError(
-                    "date value name '%s' must be resolved to a datetime before it can be used" % date.name,
-                    node=self.node)
+                    f"date value name '{date.name}' must be resolved to a datetime before it can be used",
+                    node=self.node,
+                )
 
             if isinstance(date, six.string_types):
                 date = String(date)
@@ -1416,8 +1406,9 @@ class Settlement(StochasticObject, DatedDslObject):
 
         present_time = self.get_present_time(kwds)
         interest_rate = kwds['interest_rate']
-        discounted_value = discount(included_value, present_time, self.get_date(**kwds), interest_rate)
-        return discounted_value
+        return discount(
+            included_value, present_time, self.get_date(**kwds), interest_rate
+        )
 
 
 class Fixing(DatedDslObject):
@@ -1448,8 +1439,10 @@ class Fixing(DatedDslObject):
                 observation_date=observation_date,
             )
         if not isinstance(fixing_date, datetime.date):
-            raise DslSyntaxError("fixing date value should be a datetime.date by now, but it's a %s" % fixing_date,
-                                 node=self.node)
+            raise DslSyntaxError(
+                f"fixing date value should be a datetime.date by now, but it's a {fixing_date}",
+                node=self.node,
+            )
         present_time = fixing_date
         return super(Fixing, self).call_functions(
             present_time=present_time,
@@ -1515,8 +1508,7 @@ class Choice(StochasticObject, DslExpression):
         final_states = [LongstaffSchwartzState(a, present_time) for a in self._args]
         longstaff_schwartz = LongstaffSchwartz(initial_state, final_states, involved_market_names,
                                                simulated_value_dict, simulation_id)
-        result = longstaff_schwartz.evaluate(**kwds)
-        return result
+        return longstaff_schwartz.evaluate(**kwds)
 
     def identify_price_simulation_requirements(self, requirements, **kwds):
         present_time = kwds['present_time']
@@ -1576,12 +1568,14 @@ class LongstaffSchwartz(object):
                 conditional_expected_values = scipy.array(conditional_expected_values)
                 expected_continuation_values = scipy.array(expected_continuation_values)
                 argmax = conditional_expected_values.argmax(axis=0)
-                offsets = scipy.array(range(0, conditional_expected_values.shape[1])) * \
-                          conditional_expected_values.shape[0]
+                offsets = (
+                    scipy.array(range(conditional_expected_values.shape[1]))
+                    * conditional_expected_values.shape[0]
+                )
                 indices = argmax + offsets
                 # assert indices.shape == underlying_value.shape
                 state_value = expected_continuation_values.transpose().take(indices)
-                # assert state_value.shape == underlying_value.shape
+                        # assert state_value.shape == underlying_value.shape
             elif len_subsequent_states == 1:
                 subsequent_state = state.subsequent_states.pop()
                 state_value = value_of_being_in[subsequent_state]
@@ -1593,8 +1587,9 @@ class LongstaffSchwartz(object):
                     ones = scipy.ones(path_count)
                     state_value = ones * state_value
                 if not isinstance(state_value, scipy.ndarray):
-                    raise Exception("State value type is '%s' when scipy.ndarray is required: %s" % (
-                        type(state_value), state_value))
+                    raise Exception(
+                        f"State value type is '{type(state_value)}' when scipy.ndarray is required: {state_value}"
+                    )
             value_of_being_in[state] = state_value
         return value_of_being_in[self.initial_state]
 
@@ -1603,8 +1598,7 @@ class LongstaffSchwartz(object):
         try:
             simulated_price = self.simulated_price_dict[simulated_price_id]
         except KeyError:
-            msg = "Simulated price ID {} not in simulated price dict keys: {}".format(simulated_price_id,
-                                                                                      self.simulated_price_dict.keys())
+            msg = f"Simulated price ID {simulated_price_id} not in simulated price dict keys: {self.simulated_price_dict.keys()}"
             raise KeyError(msg)
         return simulated_price
 
@@ -1667,14 +1661,11 @@ class LeastSquares(object):
         self.y = y
 
     def fit(self):
-        regressions = list()
-        # Regress against unity.
-        regressions.append(scipy.ones(self.path_count))
+        regressions = [scipy.ones(self.path_count)]
         # Regress against each variable.
-        for x in self.xs:
-            regressions.append(x)
+        regressions.extend(iter(self.xs))
         # Regress against squares and cross products.
-        indices = range(0, len(self.xs))
+        indices = range(len(self.xs))
         for i in indices:
             square = self.xs[i] * self.xs[i]
             regressions.append(square)
@@ -1695,7 +1686,7 @@ class LeastSquares(object):
         # print "c: ", c.shape, type(c)
         # print "c: ", c
         if a.shape[1] != c.shape[0]:
-            raise Exception("Matrices are not aligned: %s and %s" % (a.shape, c.shape))
+            raise Exception(f"Matrices are not aligned: {a.shape} and {c.shape}")
         d = a * c
         # print "d: ", d
         # print "d: ", d.shape, type(d)
@@ -1706,7 +1697,7 @@ class LeastSquares(object):
         try:
             c, resid, rank, sigma = scipy.linalg.lstsq(a, b)
         except Exception as inst:
-            msg = "Couldn't solve a and b: %s %s: %s" % (a, b, inst)
+            msg = f"Couldn't solve a and b: {a} {b}: {inst}"
             raise Exception(msg)
         return c
 

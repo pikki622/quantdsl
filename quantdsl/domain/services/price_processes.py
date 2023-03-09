@@ -9,13 +9,14 @@ def get_price_process(price_process_name):
     try:
         price_process_module = __import__(price_process_module_name, '', '', '*')
     except Exception as e:
-        raise DslError("Can't import price process module '%s': %s" % (price_process_module_name, e))
+        raise DslError(
+            f"Can't import price process module '{price_process_module_name}': {e}"
+        )
     try:
         price_process_class = getattr(price_process_module, price_process_class_name)
     except Exception as e:
-        raise DslError("Can't find price process class '%s' in module '%s': %s" % (
-        price_process_class_name, price_process_module_name, e))
+        raise DslError(
+            f"Can't find price process class '{price_process_class_name}' in module '{price_process_module_name}': {e}"
+        )
     assert issubclass(price_process_class, PriceProcess)
-    # Instantiate the price process object class.
-    price_process = price_process_class()
-    return price_process
+    return price_process_class()

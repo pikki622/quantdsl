@@ -16,7 +16,7 @@ class DslError(Exception):
     def __repr__(self):
         msg = self.error
         if self.descr:
-            msg += ": %s" % self.descr
+            msg += f": {self.descr}"
         if self.lineno:
             msg += " (line %d)" % (self.lineno)
         return msg

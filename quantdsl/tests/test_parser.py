@@ -474,7 +474,7 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
     assert isinstance(dsl_expr, DslExpression), type(dsl_expr)
 
     if is_verbose:
-        print_("Duration of compilation: %s" % compile_time_delta)
+        print_(f"Duration of compilation: {compile_time_delta}")
         print_()
 
     # If the expression has any stochastic elements, the evaluation kwds must have an 'observation_date' (datetime).
@@ -483,7 +483,7 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
         assert isinstance(observation_date, datetime.date)
 
         if is_verbose:
-            print_("Observation time: %s" % observation_date)
+            print_(f"Observation time: {observation_date}")
             print_()
 
         # Avoid any confusion with the internal 'present_time' variable.
@@ -509,10 +509,10 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
             assert isinstance(market_calibration, dict)
 
             # If a market simulation is required, generate the simulated prices using the price process.
-            if not 'all_market_prices' in evaluation_kwds:
+            if 'all_market_prices' not in evaluation_kwds:
 
                 if is_verbose:
-                    print_("Price process: %s" % price_process_name)
+                    print_(f"Price process: {price_process_name}")
                     print_()
 
                 price_process = get_price_process(price_process_name)
@@ -559,68 +559,66 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
     # Initialise the evaluation timer variable (needed by showProgress thread).
     evalStartTime = None
 
-    if is_parallel:
-        if is_verbose:
+    if is_parallel and is_verbose:
+        len_stubbed_exprs = len(dsl_expr.stubbed_calls)
+        lenLeafIds = len(dsl_expr.leaf_ids)
 
-            len_stubbed_exprs = len(dsl_expr.stubbed_calls)
-            lenLeafIds = len(dsl_expr.leaf_ids)
+        msg = "Evaluating %d expressions (%d %s) with " % (
+        len_stubbed_exprs, lenLeafIds, 'leaf' if lenLeafIds == 1 else 'leaves')
+        if is_multiprocessing and pool_size:
+            msg += f"a multiprocessing pool of {pool_size} workers"
+        else:
+            msg += "a single thread"
+        msg += ", please wait..."
 
-            msg = "Evaluating %d expressions (%d %s) with " % (
-            len_stubbed_exprs, lenLeafIds, 'leaf' if lenLeafIds == 1 else 'leaves')
-            if is_multiprocessing and pool_size:
-                msg += "a multiprocessing pool of %s workers" % pool_size
-            else:
-                msg += "a single thread"
-            msg += ", please wait..."
+        print_(msg)
+        print_()
 
-            print_(msg)
-            print_()
+        # Define showProgress() thread.
+        def showProgress(stop):
+            progress = 0
+            movingRates = []
+            while progress < 100 and not stop.is_set():
+                time.sleep(0.3)
+                if evalStartTime is None:
+                    continue
+                # Avoid race condition.
+                if not hasattr(dsl_expr, 'runner') or not hasattr(dsl_expr.runner, 'resultIds'):
+                    continue
+                if stop.is_set():
+                    break
 
-            # Define showProgress() thread.
-            def showProgress(stop):
-                progress = 0
-                movingRates = []
-                while progress < 100 and not stop.is_set():
-                    time.sleep(0.3)
-                    if evalStartTime is None:
-                        continue
-                    # Avoid race condition.
-                    if not hasattr(dsl_expr, 'runner') or not hasattr(dsl_expr.runner, 'resultIds'):
-                        continue
-                    if stop.is_set():
-                        break
-
-                    try:
-                        lenResults = len(dsl_expr.runner.resultIds)
-                    except IOError:
-                        break
-                    resultsTime = datetime.datetime.now()
-                    movingRates.append((lenResults, resultsTime))
-                    if len(movingRates) >= 15:
-                        movingRates.pop(0)
-                    if len(movingRates) > 1:
-                        firstLenResults, firstTimeResults = movingRates[0]
-                        lastLenResults, lastTimeResults = movingRates[-1]
-                        lenDelta = lastLenResults - firstLenResults
-                        resultsTimeDelta = lastTimeResults - firstTimeResults
-                        timeDeltaSeconds = resultsTimeDelta.seconds + resultsTimeDelta.microseconds * 0.000001
-                        rateStr = "%.2f expr/s" % (lenDelta / timeDeltaSeconds)
-                    else:
-                        rateStr = ''
-                    progress = 100.0 * lenResults / len_stubbed_exprs
-                    sys.stdout.write(
-                        "\rProgress: %01.2f%% (%s/%s) %s " % (progress, lenResults, len_stubbed_exprs, rateStr))
-                    sys.stdout.flush()
-                sys.stdout.write("\r")
+                try:
+                    lenResults = len(dsl_expr.runner.resultIds)
+                except IOError:
+                    break
+                resultsTime = datetime.datetime.now()
+                movingRates.append((lenResults, resultsTime))
+                if len(movingRates) >= 15:
+                    movingRates.pop(0)
+                if len(movingRates) > 1:
+                    firstLenResults, firstTimeResults = movingRates[0]
+                    lastLenResults, lastTimeResults = movingRates[-1]
+                    lenDelta = lastLenResults - firstLenResults
+                    resultsTimeDelta = lastTimeResults - firstTimeResults
+                    timeDeltaSeconds = resultsTimeDelta.seconds + resultsTimeDelta.microseconds * 0.000001
+                    rateStr = "%.2f expr/s" % (lenDelta / timeDeltaSeconds)
+                else:
+                    rateStr = ''
+                progress = 100.0 * lenResults / len_stubbed_exprs
+                sys.stdout.write(
+                    "\rProgress: %01.2f%% (%s/%s) %s " % (progress, lenResults, len_stubbed_exprs, rateStr))
                 sys.stdout.flush()
+            sys.stdout.write("\r")
+            sys.stdout.flush()
 
-            stop = threading.Event()
-            thread = threading.Thread(target=showProgress, args=(stop,))
-            thread.setDaemon(True)
-            thread.daemon = True
+        stop = threading.Event()
+        thread = threading.Thread(target=showProgress, args=(stop,))
+        thread.setDaemon(True)
+        thread.daemon = True
 
-            # Start showProgress() thread.
-            thread.start()
+        # Start showProgress() thread.
+        thread.start()
 
     # Start timing the evaluation.
     evalStartTime = datetime.datetime.now()
@@ -628,14 +626,11 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
         # Evaluate the primitive DSL expression.
         value = dsl_expr.evaluate(**evaluation_kwds)
     except:
-        if is_parallel:
-            if is_verbose:
-                if thread.isAlive():
-                    # print "Thread is alive..."
-                    stop.set()
-                    # print "Waiting to join with thread..."
-                    thread.join(timeout=1)
-                    # print "Joined with thread..."
+        if is_parallel and is_verbose and thread.isAlive():
+            # print "Thread is alive..."
+            stop.set()
+            # print "Waiting to join with thread..."
+            thread.join(timeout=1)
         raise
 
     # Stop timing the evaluation.
@@ -648,7 +643,7 @@ def dsl_eval(dsl_source, filename='<unknown>', is_parallel=None, dsl_classes=Non
             rateStr = "(%.2f expr/s)" % (len_stubbed_exprs / timeDeltaSeconds)
         else:
             rateStr = ''
-        print_("Duration of evaluation: %s    %s" % (evalTimeDelta, rateStr))
+        print_(f"Duration of evaluation: {evalTimeDelta}    {rateStr}")
         print_()
 
     # Prepare the result.
@@ -742,23 +737,17 @@ def compile_dsl_module(dsl_module, dsl_locals=None, dsl_globals=None):
     if len(expressions) > 1:
         raise DslSyntaxError('more than one expression in module', node=expressions[1].node)
 
-    # Can't meaningfully evaluate more than one function def without a module level expression.
     elif len(expressions) == 0 and len(function_defs) > 1:
         second_def = function_defs[1]
-        raise DslSyntaxError('more than one function def in module without an expression',
-                             '"def %s"' % second_def.name, node=function_defs[1].node)
-
-    # If it's just a module with one function, then return the function def.
+        raise DslSyntaxError(
+            'more than one function def in module without an expression',
+            f'"def {second_def.name}"',
+            node=second_def.node,
+        )
     elif len(expressions) == 0 and len(function_defs) == 1:
         return function_defs[0]
 
-    # If there is one expression, reduce it with the function defs that it calls.
     else:
         assert len(expressions) == 1
         dsl_expr = expressions[0]
-        # assert isinstance(dsl_expr, DslExpression), dsl_expr
-
-        # Compile the module for a single threaded recursive operation (faster but not distributed,
-        # so also limited in space and perhaps time). For smaller computations only.
-        dsl_obj = dsl_expr.substitute_names(dsl_globals.combine(dsl_locals))
-        return dsl_obj
+        return dsl_expr.substitute_names(dsl_globals.combine(dsl_locals))

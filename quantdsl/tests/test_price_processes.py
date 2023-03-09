@@ -240,41 +240,6 @@ class TestCalibrateBlackScholesPriceProcess(unittest.TestCase):
 
         return
 
-        rho = calc_correlation(quotes, quotes)
-        self.assertEqual(rho.shape, (2, 2))
-        self.assertEqual(list(rho.flat), [1, 1, 1, 1])
-
-        rho = calc_correlation(quotes, quotes, quotes)
-        self.assertEqual(rho.shape, (3, 3))
-        self.assertEqual(list(rho.flat), [1, 1, 1, 1, 1, 1, 1, 1, 1])
-
-        rho = calc_correlation(quotes, list(map(lambda x: -x, quotes)))
-        self.assertEqual(rho.shape, (2, 2))
-        self.assertEqual(list(rho.flat), [1, -1, -1, 1])
-
-        scipy.random.seed(12345)
-        a = list(randn(20000).flat)
-        b = list(randn(20000).flat)
-        c = list(randn(20000).flat)
-        rho = calc_correlation(a, b)
-        self.assertEqual(rho.shape, (2, 2))
-        self.assertAlmostEqual(rho[0][0], 1, places=1)
-        self.assertAlmostEqual(rho[0][1], 0, places=1)
-        self.assertAlmostEqual(rho[1][0], 0, places=1)
-        self.assertAlmostEqual(rho[1][1], 1, places=1)
-
-        rho = calc_correlation(a, b, c)
-        self.assertEqual(rho.shape, (3, 3))
-        self.assertAlmostEqual(rho[0][0], 1, places=1)
-        self.assertAlmostEqual(rho[0][1], 0, places=1)
-        self.assertAlmostEqual(rho[0][2], 0, places=1)
-        self.assertAlmostEqual(rho[1][0], 0, places=1)
-        self.assertAlmostEqual(rho[1][1], 1, places=1)
-        self.assertAlmostEqual(rho[1][2], 0, places=1)
-        self.assertAlmostEqual(rho[2][0], 0, places=1)
-        self.assertAlmostEqual(rho[2][1], 0, places=1)
-        self.assertAlmostEqual(rho[2][2], 1, places=1)
-
     def get_quotes(self):
         data = """
 2017-09-12,932.1
@@ -369,7 +334,7 @@ class TestGetQuotes(unittest.TestCase):
             # continue
 
             month_code = quandl_month_codes[month]
-            symbol = '{}{}{}'.format(product_code, month_code, year)
+            symbol = f'{product_code}{month_code}{year}'
             quotes = get_historical_data(service='quandl', sym=symbol, start=datetime.datetime(2010, 1, 1),
                                          end=datetime.datetime.now())
             quotes_settle = quotes['Settle']

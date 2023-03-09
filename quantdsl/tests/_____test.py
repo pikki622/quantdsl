@@ -36,15 +36,6 @@ class DslTestCase(unittest.TestCase):
 
         # Todo: Reinstate the delta tests.
         return
-        # Check deltas.
-        markets = self.pricer.get_markets()
-        if not markets:
-            assert self.expected_delta == None
-            return
-        market = list(markets)[0]
-        # Check option delta.
-        estimated_delta = self.pricer.calc_delta(market)
-        self.assertTolerance(estimated_delta, expected_delta, tolerance_delta)
 
         # Todo: Decide what to do with gamma (too much noise to pass tests consistently at the mo). Double-side differentials?
         # Check option gamma.
@@ -57,7 +48,9 @@ class DslTestCase(unittest.TestCase):
     def assertTolerance(self, estimated, expected, tolerance):
         upper = expected + tolerance
         lower = expected - tolerance
-        assert lower <= estimated <= upper, "Estimated '%s' not close enough to expected '%s' (tolerance '%s')." % (estimated, expected, tolerance)
+        assert (
+            lower <= estimated <= upper
+        ), f"Estimated '{estimated}' not close enough to expected '{expected}' (tolerance '{tolerance}')."
 
     def calc_value(self, dsl_source, observation_date):
         # Todo: Rename 'allRvs' to 'simulatedPrices'?

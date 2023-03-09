@@ -186,7 +186,7 @@ class QuantDslApplication(EventSourcingApplication):
         simulation_requirements = set()
         self.identify_simulation_requirements(contract_specification, observation_date, simulation_requirements,
                                               periodisation)
-        market_simulation = self.register_market_simulation(
+        return self.register_market_simulation(
             market_calibration_id=market_calibration.id,
             requirements=list(simulation_requirements),
             observation_date=observation_date,
@@ -194,7 +194,6 @@ class QuantDslApplication(EventSourcingApplication):
             interest_rate=interest_rate,
             perturbation_factor=perturbation_factor,
         )
-        return market_simulation
 
     def evaluate(self, contract_specification_id, market_simulation_id, periodisation=None,
                  is_double_sided_deltas=False):
@@ -224,7 +223,9 @@ class QuantDslApplication(EventSourcingApplication):
 
             perturbed_value = call_result.perturbed_values[perturbation_name]
             if contract_valuation.is_double_sided_deltas:
-                perturbed_value_negative = call_result.perturbed_values['-' + perturbation_name]
+                perturbed_value_negative = call_result.perturbed_values[
+                    f'-{perturbation_name}'
+                ]
             else:
                 perturbed_value_negative = None
             # Assumes format: NAME-YEAR-MONTH
@@ -296,7 +297,9 @@ class QuantDslApplication(EventSourcingApplication):
                             else:
                                 sum_simulated_prices += simulated_price.value
                                 count_simulated_prices += 1
-                    assert count_simulated_prices, "Can't find any simulated prices for {}-{}".format(year, month)
+                    assert (
+                        count_simulated_prices
+                    ), f"Can't find any simulated prices for {year}-{month}"
                     simulated_price_value = sum_simulated_prices / count_simulated_prices
 
                 # Assume present time of perturbed values is observation date.
