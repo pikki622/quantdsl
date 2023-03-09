@@ -41,8 +41,9 @@ class DependencyGraphSubscriber(object):
             contract_specification_id = event.contract_specification_id
             self.total_calls[contract_specification_id] += 1
             if self.total_calls[contract_specification_id] > self.max_dependency_graph_size:
-                raise CallLimitError('maximum dependency graph size ({}) exceeded'.format(
-                    self.max_dependency_graph_size))
+                raise CallLimitError(
+                    f'maximum dependency graph size ({self.max_dependency_graph_size}) exceeded'
+                )
 
     def generate_dependency_graph(self, event):
         assert isinstance(event, ContractSpecification.Created)

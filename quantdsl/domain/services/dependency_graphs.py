@@ -204,7 +204,11 @@ def extract_defs_and_exprs(dsl_module, dsl_globals):
         elif isinstance(dsl_obj, DslExpression):
             expressions.append(dsl_obj)
         else:
-            raise DslSyntaxError("'%s' not allowed in module" % type(dsl_obj), dsl_obj, node=dsl_obj.node)
+            raise DslSyntaxError(
+                f"'{type(dsl_obj)}' not allowed in module",
+                dsl_obj,
+                node=dsl_obj.node,
+            )
 
     return function_defs, expressions
 

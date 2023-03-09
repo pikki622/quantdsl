@@ -15,8 +15,7 @@ class TestLeastSquares(unittest.TestCase):
         fit_data = ls.fit()
         for i, expected_value in enumerate(expected_values):
             fit_value = round(fit_data[i], self.DECIMALS)
-            msg = "expected_values value: %s, fit value: %s, expected_values data: %s, fit data: %s" % (
-                expected_value, fit_value, expected_values, fit_data)
+            msg = f"expected_values value: {expected_value}, fit value: {fit_value}, expected_values data: {expected_values}, fit data: {fit_data}"
             self.assertEqual(expected_value, fit_value, msg)
 
     def test_fit1(self):

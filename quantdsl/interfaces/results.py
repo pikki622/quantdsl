@@ -99,8 +99,6 @@ class Results(object):
             # Sum over the names, the first axis.
             # shape is dates-samples
             values = values.sum(axis=0)
-            pass
-
         if measure == 'mean':
             values = values.mean(axis=-1)
         elif measure == 'std':
@@ -118,19 +116,11 @@ class Results(object):
                 errors.append([low, high])
             else:
                 # Need to return len(names)-2-len(dates) sized array, for a DateFrame.
-                for i in range(len(self.names)):
-                    errors.append([low[i], high[i]])
+                errors.extend([low[i], high[i]] for i in range(len(self.names)))
             values = array(errors)
             return values
-        # elif measure == 'direct':
-        #     raise NotImplementedError()
-        #     if len(values) == 1:
-        #         values = values[0]
-        #     else:
-        #         raise NotImplementedError()
-        #     return DataFrame(values, index=dates, columns=names)
         else:
-            raise Exception("Measure '{}' not supported".format(measure))
+            raise Exception(f"Measure '{measure}' not supported")
 
         if sum:
             return Series(values, index=self.dates)
@@ -139,11 +129,11 @@ class Results(object):
 
     @property
     def fair_value_mean(self):
-        if isinstance(self.fair_value, scipy.ndarray):
-            fair_value_mean = self.fair_value.mean()
-        else:
-            fair_value_mean = self.fair_value
-        return fair_value_mean
+        return (
+            self.fair_value.mean()
+            if isinstance(self.fair_value, scipy.ndarray)
+            else self.fair_value
+        )
 
     def plot(self, title='', confidence_interval=DEFAULT_CONFIDENCE_INTERVAL, block=False, pause=0, figsize=None):
 
@@ -164,10 +154,9 @@ class Results(object):
         else:
             observation_date = self.observation_date
 
-        fig.suptitle('Obs {}, rate {}%, path {}, pert {}, conf {}%'.format(
-            observation_date, self.interest_rate, self.path_count,
-            self.perturbation_factor,
-            confidence_interval))
+        fig.suptitle(
+            f'Obs {observation_date}, rate {self.interest_rate}%, path {self.path_count}, pert {self.perturbation_factor}, conf {confidence_interval}%'
+        )
 
         with pandas.plotting.plot_params.use('x_compat', False):
 
@@ -198,9 +187,7 @@ class Results(object):
             plt.show(block=block)
 
     def __str__(self):
-        s = ''
-        s += "\n\n"
-
+        s = '' + "\n\n"
         dates = []
         for period in self.periods:
             date = period['delivery_date']
@@ -222,10 +209,7 @@ class Results(object):
             for delivery_date, markets_results in sorted(self.by_delivery_date.items()):
                 for market_result in sorted(markets_results, key=lambda x: x['market_name']):
                     market_name = market_result['market_name']
-                    if delivery_date:
-                        s += "{} {}\n".format(delivery_date, market_name)
-                    else:
-                        s += market_name
+                    s += f"{delivery_date} {market_name}\n" if delivery_date else market_name
                     price_simulated = market_result['price_simulated'].mean()
                     s += "Price: {: >8.2f}\n".format(price_simulated)
                     delta = market_result['delta'].mean()

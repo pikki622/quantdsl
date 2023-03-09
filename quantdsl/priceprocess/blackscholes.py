@@ -56,14 +56,14 @@ class BlackScholesPriceProcess(PriceProcess):
 
         commodity_names, fixing_dates = self.get_commodity_names_and_fixing_dates(observation_date, requirements)
 
-        len_commodity_names = len(commodity_names)
-
         len_fixing_dates = len(fixing_dates)
 
         # Check the observation date equals the first fixing date.
-        assert observation_date == fixing_dates[0], "Observation date {} not equal to first fixing date: {}" \
-                                                    "".format(observation_date, fixing_dates[0])
+        assert (
+            observation_date == fixing_dates[0]
+        ), f"Observation date {observation_date} not equal to first fixing date: {fixing_dates[0]}"
 
+        len_commodity_names = len(commodity_names)
         # Diffuse random variables through each date for each market (uncorrelated increments).
         brownian_motions = scipy.zeros((len_commodity_names, len_fixing_dates, path_count))
         all_brownian_motions = []
@@ -78,13 +78,13 @@ class BlackScholesPriceProcess(PriceProcess):
                     T = get_duration_years(_start_date, fixing_date)
                     if T < 0:
                         raise DslError(
-                            "Can't really square root negative time durations: %s. Contract starts before "
-                            "observation time?" % T)
+                            f"Can't really square root negative time durations: {T}. Contract starts before observation time?"
+                        )
                     end_rv = start_rv + scipy.sqrt(T) * draws
                     try:
                         brownian_motions[i][j + 1] = end_rv
                     except ValueError as e:
-                        raise ValueError("Can't set end_rv in brownian_motions: %s" % e)
+                        raise ValueError(f"Can't set end_rv in brownian_motions: {e}")
                     _start_date = fixing_date
                     start_rv = end_rv
 
@@ -110,7 +110,7 @@ class BlackScholesPriceProcess(PriceProcess):
             try:
                 U = scipy.linalg.cholesky(correlation_matrix)
             except LinAlgError as e:
-                msg = "Cholesky decomposition failed with correlation matrix: %s: %s" % (correlation_matrix, e)
+                msg = f"Cholesky decomposition failed with correlation matrix: {correlation_matrix}: {e}"
                 raise DslError(msg)
 
             # Construct correlated increments from uncorrelated increments
@@ -120,8 +120,7 @@ class BlackScholesPriceProcess(PriceProcess):
                 # the dot product with the lower triangular matrix of the correlation matrix.
                 brownian_motions_correlated = brownian_motions.T.dot(U)
             except Exception as e:
-                msg = ("Couldn't multiply uncorrelated Brownian increments with decomposed correlation matrix: "
-                       "%s, %s: %s" % (brownian_motions, U, e))
+                msg = f"Couldn't multiply uncorrelated Brownian increments with decomposed correlation matrix: {brownian_motions}, {U}: {e}"
                 raise DslError(msg)
 
             # Put markets back on the first dimension.
@@ -130,10 +129,10 @@ class BlackScholesPriceProcess(PriceProcess):
 
         # Put random variables into a nested Python dict, keyed by market commodity_name and fixing date.
         for i, commodity_name in enumerate(commodity_names):
-            market_rvs = []
-            for j, fixing_date in enumerate(fixing_dates):
-                rv = brownian_motions[i][j]
-                market_rvs.append((fixing_date, rv))
+            market_rvs = [
+                (fixing_date, brownian_motions[i][j])
+                for j, fixing_date in enumerate(fixing_dates)
+            ]
             all_brownian_motions.append((commodity_name, market_rvs))
 
         return all_brownian_motions
@@ -144,12 +143,7 @@ class BlackScholesPriceProcess(PriceProcess):
         try:
             correlation = market_calibration['rho'][index_i][index_j]
         except KeyError as e:
-            msg = "Can't find correlation between '%s' and '%s' in market calibration params: %s: %s" % (
-                name_i,
-                name_j,
-                market_calibration,
-                e
-            )
+            msg = f"Can't find correlation between '{name_i}' and '{name_j}' in market calibration params: {market_calibration}: {e}"
             raise DslError(msg)
         else:
             assert isinstance(correlation, (float, int)), correlation
@@ -205,10 +199,7 @@ def calc_historical_volatility(quotes):
 
 
 def pick_last_price(quotes):
-    if len(quotes):
-        return quotes[-1]
-    else:
-        return None
+    return quotes[-1] if len(quotes) else None
 
 
 def calc_correlation(*args):
@@ -216,7 +207,6 @@ def calc_correlation(*args):
         return numpy.array([[1]])
     else:
         raise NotImplementedError('Need to align dates. Also, which time series?')
-        return numpy.corrcoef(numpy.array(args))
 
 
 quandl_month_codes = {

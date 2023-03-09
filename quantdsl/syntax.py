@@ -23,7 +23,7 @@ def find_module_path(name):
         try:
             module = import_module(name)
         except SyntaxError as e:
-            raise DslSyntaxError("Can't import {}: {}".format(name, e))
+            raise DslSyntaxError(f"Can't import {name}: {e}")
         path = module.__file__.strip('c')
     elif six.PY3:
         if find_loader:
@@ -56,7 +56,9 @@ class DslParser(object):
             # Parse as Python source code, into a Python abstract syntax tree.
             ast_module = ast.parse(dsl_source, filename=filename, mode='exec')
         except SyntaxError as e:
-            raise DslSyntaxError("DSL source code is not valid Python code: {}".format(dsl_source), e)
+            raise DslSyntaxError(
+                f"DSL source code is not valid Python code: {dsl_source}", e
+            )
 
         # Generate Quant DSL from Python AST.
         return self.visitAstNode(ast_module)
@@ -71,14 +73,13 @@ class DslParser(object):
 
         # Construct the "visit" method name.
         dsl_element_name = node.__class__.__name__
-        method_name = 'visit' + dsl_element_name
+        method_name = f'visit{dsl_element_name}'
 
         # Try to get_quantdsl_app the "visit" method object.
         try:
             method = getattr(self, method_name)
         except AttributeError:
-            msg = "element '%s' is not supported (visit method '%s' not found on parser): %s" % (
-                dsl_element_name, method_name, node)
+            msg = f"element '{dsl_element_name}' is not supported (visit method '{method_name}' not found on parser): {node}"
             raise DslSyntaxError(msg)
 
         # Call the "visit" method object, and return the result of visiting the node.
@@ -128,11 +129,11 @@ class DslParser(object):
             return []
         from_names = [a.name for a in node.names]
         dsl_module = self.import_dsl_module(node.module)
-        nodes = []
-        for node in dsl_module.body:
-            if isinstance(node, FunctionDef) and node.name in from_names:
-                nodes.append(node)
-        return nodes
+        return [
+            node
+            for node in dsl_module.body
+            if isinstance(node, FunctionDef) and node.name in from_names
+        ]
 
     def import_dsl_module(self, name):
         path = find_module_path(name)
@@ -190,7 +191,7 @@ class DslParser(object):
         if isinstance(node.op, ast.USub):
             dsl_class = self.dsl_classes['UnarySub']
         else:
-            raise DslSyntaxError("Unsupported unary operator token: %s" % node.op)
+            raise DslSyntaxError(f"Unsupported unary operator token: {node.op}")
         return dsl_class(node=node, *args)
 
     def visitBinOp(self, node):
@@ -285,17 +286,13 @@ class DslParser(object):
         """
         name = node.name
         dsl_function_arg_class = self.dsl_classes['FunctionArg']
-        if six.PY2:
-            arg_name_attr = 'id'
-        else:
-            arg_name_attr = 'arg'
+        arg_name_attr = 'id' if six.PY2 else 'arg'
         call_arg_defs = [dsl_function_arg_class(getattr(arg, arg_name_attr), '') for arg in node.args.args]
         assert len(node.body) == 1, "Function defs with more than one body statement are not supported at the moment."
         decorator_names = [ast_name.id for ast_name in node.decorator_list]
         body = self.visitAstNode(node.body[0])
         dsl_args = [name, call_arg_defs, body, decorator_names]
-        function_def = self.dsl_classes['FunctionDef'](node=node, *dsl_args)
-        return function_def
+        return self.dsl_classes['FunctionDef'](node=node, *dsl_args)
 
     def visitIfExp(self, node):
         """

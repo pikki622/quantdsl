@@ -97,7 +97,7 @@ class ApplicationTestCase(unittest.TestCase):
                 else:
                     actual_value = actual_delta.mean()
                     expected_value = expected_deltas[perturbed_name]
-                    error_msg = "{}: {} != {}".format(perturbed_name, actual_value, expected_value)
+                    error_msg = f"{perturbed_name}: {actual_value} != {expected_value}"
                     self.assertAlmostEqual(actual_value, expected_value, places=2, msg=error_msg)
 
         # Check the call count.
@@ -601,14 +601,18 @@ f1(f5(f2(%s)))
 def f(x):
     x
 """
-        self.assert_contract_value(code + "f(1)", expected_call_count=2)
-        self.assert_contract_value(code + "f(1) + f(1)", expected_call_count=2)
-        self.assert_contract_value(code + "f(1) + f(1) + f(1)", expected_call_count=2)
-        self.assert_contract_value(code + "f(1) + f(1) + f(1)", expected_call_count=2)
-        self.assert_contract_value(code + "f(f(1))", expected_call_count=2)
-        self.assert_contract_value(code + "f(f(f(1)))", expected_call_count=2)
-        self.assert_contract_value(code + "f(f(f(1))) + f(f(f(1)))", expected_call_count=2)
-        self.assert_contract_value(code + "f(f(f(1))) + f(f(f(f(1))))", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(1)", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(1) + f(1)", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(1) + f(1) + f(1)", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(1) + f(1) + f(1)", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(f(1))", expected_call_count=2)
+        self.assert_contract_value(f"{code}f(f(f(1)))", expected_call_count=2)
+        self.assert_contract_value(
+            f"{code}f(f(f(1))) + f(f(f(1)))", expected_call_count=2
+        )
+        self.assert_contract_value(
+            f"{code}f(f(f(1))) + f(f(f(f(1))))", expected_call_count=2
+        )
 
     def test_call_cache_inlined_function(self):
         code = """
@@ -616,13 +620,17 @@ def f(x):
 def f(x):
     x
 """
-        self.assert_contract_value(code + "f(1)", expected_call_count=1)
-        self.assert_contract_value(code + "f(1) + f(1)", expected_call_count=1)
-        self.assert_contract_value(code + "f(1) + f(1) + f(1)", expected_call_count=1)
-        self.assert_contract_value(code + "f(f(1))", expected_call_count=1)
-        self.assert_contract_value(code + "f(f(f(1)))", expected_call_count=1)
-        self.assert_contract_value(code + "f(f(f(1))) + f(f(f(1)))", expected_call_count=1)
-        self.assert_contract_value(code + "f(f(f(1))) + f(f(f(f(1))))", expected_call_count=1)
+        self.assert_contract_value(f"{code}f(1)", expected_call_count=1)
+        self.assert_contract_value(f"{code}f(1) + f(1)", expected_call_count=1)
+        self.assert_contract_value(f"{code}f(1) + f(1) + f(1)", expected_call_count=1)
+        self.assert_contract_value(f"{code}f(f(1))", expected_call_count=1)
+        self.assert_contract_value(f"{code}f(f(f(1)))", expected_call_count=1)
+        self.assert_contract_value(
+            f"{code}f(f(f(1))) + f(f(f(1)))", expected_call_count=1
+        )
+        self.assert_contract_value(
+            f"{code}f(f(f(1))) + f(f(f(f(1))))", expected_call_count=1
+        )
 
     def test_call_cache_recombine_branches_integer_args(self):
         code = """

@@ -19,7 +19,7 @@ class PriceProcess(six.with_metaclass(ABCMeta)):
 
     def get_commodity_names_and_fixing_dates(self, observation_date, requirements):
         # Get an ordered list of all the commodity names and fixing dates.
-        commodity_names = sorted(set([r[0] for r in requirements]))
+        commodity_names = sorted({r[0] for r in requirements})
         observation_date = datetime_from_date(observation_date)
 
         requirement_datetimes = [datetime_from_date(r[1]) for r in requirements]

@@ -51,7 +51,9 @@ class TestReadmeFile(TestCase):
         exit_status = p.wait()
 
         # Check for errors running the code.
-        self.assertEqual(exit_status, 0, u"Usage exit status {}:\n{}\n{}".format(exit_status, out, err))
+        self.assertEqual(
+            exit_status, 0, f"Usage exit status {exit_status}:\n{out}\n{err}"
+        )
 
         # Delete the temp file.
         os.unlink(temp_path)

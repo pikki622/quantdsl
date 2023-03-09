@@ -19,11 +19,10 @@ def GasStorage(start, end, commodity_name, quantity, target, limit, step, slew):
                 Inject(start, end, commodity_name, quantity, target, limit, step, slew, slew),
                 Inject(start, end, commodity_name, quantity, target, limit, step, -slew, slew),
             ))
+    elif target < 0 or target == quantity:
+        0
     else:
-        if target < 0 or target == quantity:
-            0
-        else:
-            BreachOfContract()
+        BreachOfContract()
 
 
 @inline

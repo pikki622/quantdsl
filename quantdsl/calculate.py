@@ -112,9 +112,9 @@ class Calculate(object):
             timeout_thread.start()
 
         with QuantDslApplicationWithMultithreadingAndPythonObjects(
-                max_dependency_graph_size=self.max_dependency_graph_size,
-                dsl_classes=self.dsl_classes,
-        ) as app:
+                    max_dependency_graph_size=self.max_dependency_graph_size,
+                    dsl_classes=self.dsl_classes,
+            ) as app:
 
             # Subscribe after the application, so events are received after the application.
             # - this means the final result is persisted before this interface is notified
@@ -166,7 +166,9 @@ class Calculate(object):
                 self.result_count_expected = sum(call_counts.values())
                 self.result_cost_expected = sum(call_costs.values())
                 if self.verbose:
-                    print("Starting {} node evaluations, please wait...".format(self.result_count_expected))
+                    print(
+                        f"Starting {self.result_count_expected} node evaluations, please wait..."
+                    )
                     # Flush, because otherwise on Jupyter hub sometimes this message disrupts the progress display.
                     sys.stdout.flush()
                 # self.expected_num_call_requirements = len(call_costs)
@@ -184,7 +186,7 @@ class Calculate(object):
                 # Wait for the result.
                 self.root_result_id = make_call_result_id(contract_valuation.id,
                                                           contract_valuation.contract_specification_id)
-                if not self.root_result_id in app.call_result_repo:
+                if self.root_result_id not in app.call_result_repo:
                     while not self.is_finished.wait(timeout=1):
                         self.check_has_app_thread_errored(app)
                     self.check_is_timed_out()
@@ -244,7 +246,7 @@ class Calculate(object):
 
     def print_compilation_progress(self, event):
         if self.verbose:
-            msg = "\rCompiled {} nodes ".format(self.call_requirement_count)
+            msg = f"\rCompiled {self.call_requirement_count} nodes "
             self.call_requirement_count += 1
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -314,11 +316,11 @@ class Calculate(object):
         if percent_complete == 100:
             self.duration_evaluating = duration
 
-        SCREEN_STALE_AFTER_SECONDS = 1
         if self.last_printed_progress is None:
             is_screen_stale = True
         else:
             seconds_since_printed = (datetime_now - self.last_printed_progress).total_seconds()
+            SCREEN_STALE_AFTER_SECONDS = 1
             is_screen_stale = seconds_since_printed > SCREEN_STALE_AFTER_SECONDS
         requires_refresh = is_screen_stale
         can_refresh = seconds_evaluating > 1
@@ -360,7 +362,7 @@ class Calculate(object):
     def wait_then_set_is_timed_out(self):
         sleep(self.timeout)
         if not self.is_finished.is_set():
-            msg = 'Timed out after {}s'.format(self.timeout)
+            msg = f'Timed out after {self.timeout}s'
             self.set_is_timed_out(msg)
 
     def set_is_timed_out(self, msg):
@@ -369,7 +371,7 @@ class Calculate(object):
         self.set_is_finished()
 
     def shutdown(self, signal, frame):
-        self.set_is_interrupted('Interrupted by signal {}'.format(signal))
+        self.set_is_interrupted(f'Interrupted by signal {signal}')
 
     def set_is_interrupted(self, msg):
         self.interruption_msg = msg
